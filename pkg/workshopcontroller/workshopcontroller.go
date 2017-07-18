@@ -24,6 +24,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/pkg/errors"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	workshopv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
@@ -45,16 +46,14 @@ func New(logger log.Logger, client *clientv1.Client) *WorkshopController {
 // Run starts an Desk resource controller
 func (c *WorkshopController) Run(ctx context.Context) error {
 	if _, err := c.client.CreateDeskCRD(); err != nil {
-		return errors.Wrapf(err, "could create custom resource definition")
-	}
-	c.logger.Log("msg", "successfully created custom resource definition")
-
-	defer func() {
-		if err := c.client.DeleteDeskCRD(); err != nil {
-			c.logger.Log("msg", "could delete custom resource definition", "err", err)
+		if apierrors.IsAlreadyExists(err) {
+			c.logger.Log("msg", "custom resource definition already exists, continuing execution")
+		} else {
+			return errors.Wrapf(err, "could create custom resource definition")
 		}
-		c.logger.Log("msg", "successfully deleted custom resource definition")
-	}()
+	} else {
+		c.logger.Log("msg", "successfully created custom resource definition")
+	}
 
 	// Watch Desk objects
 	_, err := c.client.WatchDesks(ctx, c.onAdd, c.onUpdate, c.onDelete)
@@ -67,6 +66,10 @@ func (c *WorkshopController) Run(ctx context.Context) error {
 	c.logger.Log("msg", "stopped watching for desk resource changes")
 
 	return ctx.Err()
+}
+
+func (c *WorkshopController) Clean() error {
+	return c.client.DeleteDeskCRD()
 }
 
 func (c *WorkshopController) onAdd(obj interface{}) {

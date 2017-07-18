@@ -36,6 +36,31 @@ func Run(logger log.Logger) error {
 		},
 	}
 
+	app.Commands = []cli.Command{
+		{
+			Name:    "clean",
+			Aliases: []string{"c"},
+			Usage:   "clean up workshop resources and exit",
+			Action: func(c *cli.Context) error {
+				// load the client config.
+				client, err := getClient(c)
+				if err != nil {
+					return errors.Wrapf(err, "could not load workshop client")
+				}
+
+				// create the controller
+				controller := workshopcontroller.New(logger, client)
+
+				// Clean up the workshop resources
+				if err := controller.Clean(); err != nil {
+					logger.Log("msg", "could not delete custom resource definition", "err", err)
+				}
+				logger.Log("msg", "successfully deleted custom resource definition")
+				return nil
+			},
+		},
+	}
+
 	app.Before = func(c *cli.Context) error {
 		inCluster := c.IsSet("in-cluster")
 		if inCluster {
@@ -52,17 +77,9 @@ func Run(logger log.Logger) error {
 
 	app.Action = func(c *cli.Context) error {
 		// load the client config.
-		var (
-			client *clientv1.Client
-			err    error
-		)
-		if c.IsSet("in-cluster") {
-			client, err = clientv1.NewFromCluster()
-		} else {
-			client, err = clientv1.NewFromFile(c.String("kubeconfig"))
-		}
+		client, err := getClient(c)
 		if err != nil {
-			return errors.Wrapf(err, "could not load create workshop client")
+			return errors.Wrapf(err, "could not load workshop client")
 		}
 
 		// create the controller
@@ -74,13 +91,22 @@ func Run(logger log.Logger) error {
 		// run the controller
 		wg.Go(func() error { return controller.Run(ctx) })
 
-		term := make(chan os.Signal)
-		signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+		sigChan := make(chan os.Signal)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1)
 
 		// wait until the controller is done or we get a SIGTERM
 		select {
-		case <-term:
-			logger.Log("msg", "received SIGTERM, exiting gracefully...")
+		case sig := <-sigChan:
+			switch sig {
+			case syscall.SIGTERM:
+				logger.Log("msg", "received SIGTERM, exiting gracefully...")
+			case syscall.SIGUSR1:
+				logger.Log("msg", "received SIGUSR1, cleaning up and exiting gracefully...")
+				if err := controller.Clean(); err != nil {
+					logger.Log("msg", "could not delete custom resource definition", "err", err)
+				}
+				logger.Log("msg", "successfully deleted custom resource definition")
+			}
 		case <-ctx.Done():
 		}
 
@@ -92,4 +118,12 @@ func Run(logger log.Logger) error {
 	}
 
 	return app.Run(os.Args)
+}
+
+func getClient(c *cli.Context) (*clientv1.Client, error) {
+	if c.IsSet("in-cluster") {
+		return clientv1.NewFromCluster()
+	} else {
+		return clientv1.NewFromFile(c.String("kubeconfig"))
+	}
 }

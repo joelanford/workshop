@@ -35,6 +35,11 @@ func GetDesk() cli.ActionFunc {
 			desks = append(desks, *desk)
 		}
 
+		if len(desks) == 0 {
+			fmt.Fprintf(os.Stdout, "No resources found.\n")
+			return nil
+		}
+
 		var w tabwriter.Writer
 		w.Init(os.Stdout, 0, 4, 6, ' ', 0)
 		fmt.Fprintln(&w, "NAME\tOWNER\tVERSION\tEXPIRATION")
