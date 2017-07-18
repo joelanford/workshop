@@ -32,18 +32,20 @@ import (
 )
 
 type WorkshopController struct {
-	logger log.Logger
-	client *clientv1.Client
+	logger     log.Logger
+	client     *clientv1.Client
+	createTime time.Time
 }
 
 func New(logger log.Logger, client *clientv1.Client) *WorkshopController {
 	return &WorkshopController{
-		logger: logger,
-		client: client,
+		logger:     logger,
+		client:     client,
+		createTime: time.Now(),
 	}
 }
 
-// Run starts an Desk resource controller
+// Run starts a workshop resource controller
 func (c *WorkshopController) Run(ctx context.Context) error {
 	if _, err := c.client.CreateDeskCRD(); err != nil {
 		if apierrors.IsAlreadyExists(err) {
@@ -56,11 +58,12 @@ func (c *WorkshopController) Run(ctx context.Context) error {
 	}
 
 	// Watch Desk objects
-	_, err := c.client.WatchDesks(ctx, c.onAdd, c.onUpdate, c.onDelete)
-	if err != nil {
-		return errors.Wrapf(err, "failed to register watch for desk resources")
-	}
+	c.client.WatchDesks(ctx, c.onAdd, c.onUpdate, c.onDelete)
 	c.logger.Log("msg", "started watching for desk resource changes")
+
+	// Clean up expired Desk objects
+	go c.expireDesks(ctx)
+	c.logger.Log("msg", "started watching for expired desk resources")
 
 	<-ctx.Done()
 	c.logger.Log("msg", "stopped watching for desk resource changes")
@@ -74,7 +77,11 @@ func (c *WorkshopController) Clean() error {
 
 func (c *WorkshopController) onAdd(obj interface{}) {
 	desk := obj.(*workshopv1.Desk)
-	c.logger.Log("msg", "desk added", "id", desk.ObjectMeta.UID, "owner", desk.Spec.Owner)
+
+	if desk.ObjectMeta.CreationTimestamp.Before(metav1.NewTime(c.createTime)) {
+		c.logger.Log("msg", "found existing desk", "id", desk.ObjectMeta.UID, "owner", desk.Spec.Owner, "version", desk.Spec.Version, "expiration", desk.Spec.ExpirationTimestamp)
+		return
+	}
 
 	// NEVER modify objects from the store. It's a read-only, local cache.
 	// You can use c.client.CopyDesk() to make a deep copy of original object and modify this copy
@@ -93,10 +100,11 @@ func (c *WorkshopController) onAdd(obj interface{}) {
 	if deskCopy.Spec.ExpirationTimestamp.IsZero() {
 		deskCopy.Spec.ExpirationTimestamp = metav1.NewTime(time.Now().Add(time.Hour * 24 * 14).UTC())
 	}
+	c.logger.Log("msg", "desk created", "id", desk.ObjectMeta.UID, "owner", desk.Spec.Owner, "version", desk.Spec.Version, "expiration", desk.Spec.ExpirationTimestamp)
 
 	deskCopy.Status = workshopv1.DeskStatus{
-		State:   workshopv1.DeskStateAssigned,
-		Message: "Successfully assigned by workshop-controller",
+		State:   workshopv1.DeskStatusStateInitializing,
+		Message: workshopv1.DeskStatusMsgInitializing,
 	}
 
 	if err := c.client.PutDesk(deskCopy); err != nil {
@@ -113,4 +121,33 @@ func (c *WorkshopController) onUpdate(oldObj, newObj interface{}) {
 func (c *WorkshopController) onDelete(obj interface{}) {
 	desk := obj.(*workshopv1.Desk)
 	c.logger.Log("msg", "desk deleted", "id", desk.ObjectMeta.UID, "owner", desk.Spec.Owner)
+}
+
+func (c *WorkshopController) expireDesks(ctx context.Context) error {
+	for {
+		select {
+		case now := <-time.After(time.Second * 60):
+			c.logger.Log("msg", "checking for expired desks")
+			deskList, err := c.client.ListDesks()
+			if err != nil {
+				return err
+			}
+			for _, desk := range deskList.Items {
+				if desk.Spec.ExpirationTimestamp.Before(metav1.NewTime(now)) &&
+					desk.Status.State != workshopv1.DeskStatusStateExpired &&
+					desk.Status.State != workshopv1.DeskStatusStateTerminating {
+					desk.Status = workshopv1.DeskStatus{
+						State:   workshopv1.DeskStatusStateExpired,
+						Message: workshopv1.DeskStatusMsgExpired,
+					}
+					if err := c.client.PutDesk(&desk); err != nil {
+						return err
+					}
+					c.logger.Log("msg", "desk expired", "id", desk.ObjectMeta.UID, "owner", desk.Spec.Owner, "version", desk.Spec.Version, "expiration", desk.Spec.ExpirationTimestamp)
+				}
+			}
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }

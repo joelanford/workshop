@@ -42,9 +42,9 @@ func GetDesk() cli.ActionFunc {
 
 		var w tabwriter.Writer
 		w.Init(os.Stdout, 0, 4, 6, ' ', 0)
-		fmt.Fprintln(&w, "NAME\tOWNER\tVERSION\tEXPIRATION")
+		fmt.Fprintln(&w, "NAME\tSTATUS\tOWNER\tVERSION\tEXPIRATION")
 		for _, desk := range desks {
-			fmt.Fprintf(&w, "%s\t%s\t%s\t%s\n", desk.ObjectMeta.Name, desk.Spec.Owner, desk.Spec.Version, desk.Spec.ExpirationTimestamp)
+			fmt.Fprintf(&w, "%s\t%s\t%s\t%s\t%s\n", desk.ObjectMeta.Name, desk.Status.State, desk.Spec.Owner, desk.Spec.Version, desk.Spec.ExpirationTimestamp)
 		}
 		return w.Flush()
 	}

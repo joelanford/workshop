@@ -46,16 +46,23 @@ type DeskSpec struct {
 }
 
 type DeskStatus struct {
-	State   DeskState `json:"state,omitempty"`
-	Message string    `json:"message,omitempty"`
+	State   DeskStatusState   `json:"state,omitempty"`
+	Message DeskStatusMessage `json:"message,omitempty"`
 }
 
-type DeskState string
+type DeskStatusState string
+type DeskStatusMessage string
 
 const (
-	DeskStateInitializing DeskState = "Initializing"
-	DeskStateAssigned     DeskState = "Assigned"
-	DeskStateTerminating  DeskState = "Terminating"
+	DeskStatusStateInitializing DeskStatusState = "Initializing"
+	DeskStatusStateReady        DeskStatusState = "Ready"
+	DeskStatusStateExpired      DeskStatusState = "Expired"
+	DeskStatusStateTerminating  DeskStatusState = "Terminating"
+
+	DeskStatusMsgInitializing DeskStatusMessage = "Desk is initializing, not ready yet"
+	DeskStatusMsgReady        DeskStatusMessage = "Desk is ready for use"
+	DeskStatusMsgExpired      DeskStatusMessage = "Desk is expired and no longer accessible"
+	DeskStatusMsgTerminating  DeskStatusMessage = "Desk is terminating"
 )
 
 type DeskList struct {

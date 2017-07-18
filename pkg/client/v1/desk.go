@@ -42,8 +42,8 @@ func (c *Client) CreateDesk(name, owner, version string, expirationTimestamp tim
 			// Environment: dev|integration|staging|production,
 		},
 		Status: workshopv1.DeskStatus{
-			State:   workshopv1.DeskStateInitializing,
-			Message: "Initializing, not assigned yet",
+			State:   workshopv1.DeskStatusStateInitializing,
+			Message: workshopv1.DeskStatusMsgInitializing,
 		},
 	}
 	var result workshopv1.Desk
@@ -55,7 +55,7 @@ func (c *Client) CreateDesk(name, owner, version string, expirationTimestamp tim
 		return nil, err
 	}
 
-	if err := c.WaitDesk(name, workshopv1.DeskStateAssigned); err != nil {
+	if err := c.WaitDesk(name, workshopv1.DeskStatusStateInitializing); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -111,7 +111,7 @@ func (c *Client) PutDesk(desk *workshopv1.Desk) error {
 		Error()
 }
 
-func (c *Client) WaitDesk(name string, state workshopv1.DeskState) error {
+func (c *Client) WaitDesk(name string, state workshopv1.DeskStatusState) error {
 	return wait.PollImmediate(100*time.Millisecond, 10*time.Second, func() (bool, error) {
 		var desk workshopv1.Desk
 		err := c.restClient.Get().
@@ -128,7 +128,7 @@ func (c *Client) WaitDesk(name string, state workshopv1.DeskState) error {
 }
 
 func (c *Client) WatchDesks(ctx context.Context, onAdd func(interface{}), onUpdate func(interface{}, interface{}), onDelete func(interface{}),
-) (cache.Controller, error) {
+) cache.Controller {
 	source := cache.NewListWatchFromClient(
 		c.restClient,
 		workshopv1.DeskResourcePlural,
@@ -154,5 +154,5 @@ func (c *Client) WatchDesks(ctx context.Context, onAdd func(interface{}), onUpda
 		})
 
 	go controller.Run(ctx.Done())
-	return controller, nil
+	return controller
 }
