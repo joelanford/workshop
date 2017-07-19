@@ -16,32 +16,39 @@ func DeleteDesk() cli.ActionFunc {
 			return err
 		}
 
+		var names []string
+
 		if c.IsSet("all") {
 			deskList, err := client.ListDesks()
 			if err != nil {
 				return err
 			}
+
 			for _, desk := range deskList.Items {
 				name := desk.GetName()
-
-				if err := client.DeleteDesk(name); err != nil {
-					return err
-				}
-
-				fmt.Printf("desk \"%s\" deleted\n", name)
+				names = append(names, name)
 			}
 		} else if c.NArg() > 0 {
-			name := c.Args()[0]
-
-			if err := client.DeleteDesk(name); err != nil {
-				return err
-			}
-
-			fmt.Printf("desk \"%s\" deleted\n", name)
-			return nil
+			names = c.Args()
 		} else {
 			return errors.New("NAME or -all option is required")
 		}
+		deleteDesksByName(client, names)
 		return nil
+	}
+}
+
+func deleteDesksByName(client *clientv1.Client, names []string) {
+	if len(names) == 0 {
+		fmt.Println("No resources found.")
+		return
+	}
+
+	for _, name := range names {
+		if err := client.DeleteDesk(name); err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Printf("desk \"%s\" deleted\n", name)
+		}
 	}
 }
