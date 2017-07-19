@@ -46,7 +46,7 @@ func New(logger log.Logger, client *clientv1.Client) *WorkshopController {
 }
 
 // Run starts a workshop resource controller
-func (c *WorkshopController) Run(ctx context.Context) error {
+func (c *WorkshopController) Run(ctx context.Context, expirationInterval time.Duration) error {
 	if _, err := c.client.CreateDeskCRD(); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			c.logger.Log("msg", "custom resource definition already exists, continuing execution")
@@ -62,7 +62,7 @@ func (c *WorkshopController) Run(ctx context.Context) error {
 	c.logger.Log("msg", "started watching for desk resource changes")
 
 	// Clean up expired Desk objects
-	go c.expireDesks(ctx)
+	go c.expireDesks(ctx, expirationInterval)
 	c.logger.Log("msg", "started watching for expired desk resources")
 
 	<-ctx.Done()
@@ -123,10 +123,12 @@ func (c *WorkshopController) onDelete(obj interface{}) {
 	c.logger.Log("msg", "desk deleted", "id", desk.ObjectMeta.UID, "owner", desk.Spec.Owner)
 }
 
-func (c *WorkshopController) expireDesks(ctx context.Context) error {
+func (c *WorkshopController) expireDesks(ctx context.Context, expirationInterval time.Duration) error {
+	ticker := time.NewTicker(expirationInterval)
+	defer ticker.Stop()
 	for {
 		select {
-		case now := <-time.After(time.Second * 60):
+		case now := <-ticker.C:
 			c.logger.Log("msg", "checking for expired desks")
 			deskList, err := c.client.ListDesks()
 			if err != nil {

@@ -1,9 +1,11 @@
 package app
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/urfave/cli"
 
@@ -11,12 +13,25 @@ import (
 	"github.com/joelanford/workshop/pkg/workshopctl"
 )
 
-var AppVersion string
+var (
+	version   string
+	buildTime string
+	buildUser string
+	gitHash   string
+)
 
 func Run() error {
+	cli.VersionPrinter = printVersion
 	app := cli.NewApp()
 
-	app.Version = AppVersion
+	app.Name = "workshopctl"
+	app.HelpName = "workshopctl"
+	app.Version = version
+
+	if compiled, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", buildTime); err == nil {
+		app.Compiled = compiled
+	}
+
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:   "kubeconfig, c",
@@ -82,4 +97,8 @@ func Run() error {
 	sort.Sort(cli.CommandsByName(app.Commands))
 
 	return app.Run(os.Args)
+}
+
+func printVersion(c *cli.Context) {
+	fmt.Printf("Version:     %s\nBuild Time:  %s\nBuild User:  %s\nGit Hash:    %s\n", version, buildTime, buildUser, gitHash)
 }

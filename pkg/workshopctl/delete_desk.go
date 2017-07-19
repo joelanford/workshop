@@ -17,7 +17,19 @@ func DeleteDesk() cli.ActionFunc {
 		}
 
 		if c.IsSet("all") {
-			return errors.New("not supported")
+			deskList, err := client.ListDesks()
+			if err != nil {
+				return err
+			}
+			for _, desk := range deskList.Items {
+				name := desk.GetName()
+
+				if err := client.DeleteDesk(name); err != nil {
+					return err
+				}
+
+				fmt.Printf("desk \"%s\" deleted\n", name)
+			}
 		} else if c.NArg() > 0 {
 			name := c.Args()[0]
 

@@ -23,7 +23,7 @@ func GetDesk() cli.ActionFunc {
 		if c.NArg() == 0 {
 			deskList, err := client.ListDesks()
 			if err != nil {
-				return nil
+				return err
 			}
 			desks = deskList.Items
 		} else {
