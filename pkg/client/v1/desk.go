@@ -90,16 +90,7 @@ func (c *Client) DeleteDesk(name string) error {
 		Name(name).
 		Do().Error()
 
-	// TODO: wait for deletion to occur before returning
-}
-
-func (c *Client) DeleteAllDesks() error {
-	return c.restClient.Delete().
-		Resource(workshopv1.DeskResourcePlural).
-		Do().Error()
-
-	// TODO: how do I know what to log?
-	// TODO: wait for deletion to occur before returning
+	// TODO: wait for deletion to occur before returning?
 }
 
 func (c *Client) PutDesk(desk *workshopv1.Desk) error {
