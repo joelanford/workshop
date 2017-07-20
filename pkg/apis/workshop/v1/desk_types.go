@@ -20,19 +20,28 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const DeskResourcePlural = "desks"
+type DeskStatusState string
+type DeskStatusMessage string
 
-const DefaultDeskVersion = "latest"
-const DefaultDeskLifespan = time.Hour * 24 * 14
+const (
+	DeskResourcePlural string = "desks"
 
-type Desk struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata"`
-	Spec              DeskSpec   `json:"spec"`
-	Status            DeskStatus `json:"status,omitempty"`
-}
+	DefaultDeskVersion  string        = "latest"
+	DefaultDeskLifespan time.Duration = time.Hour * 24 * 14
+
+	DeskStatusStateInitializing DeskStatusState = "Initializing"
+	DeskStatusStateReady        DeskStatusState = "Ready"
+	DeskStatusStateExpired      DeskStatusState = "Expired"
+	DeskStatusStateTerminating  DeskStatusState = "Terminating"
+
+	DeskStatusMsgInitializing DeskStatusMessage = "Desk is initializing, not ready yet"
+	DeskStatusMsgReady        DeskStatusMessage = "Desk is ready for use"
+	DeskStatusMsgExpired      DeskStatusMessage = "Desk is expired and no longer accessible"
+	DeskStatusMsgTerminating  DeskStatusMessage = "Desk is terminating"
+)
 
 type DeskSpec struct {
 	// Version of the desk to be deployed. (optional; default "latest")
@@ -50,23 +59,35 @@ type DeskStatus struct {
 	Message DeskStatusMessage `json:"message,omitempty"`
 }
 
-type DeskStatusState string
-type DeskStatusMessage string
+type Desk struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              DeskSpec   `json:"spec"`
+	Status            DeskStatus `json:"status,omitempty"`
+}
 
-const (
-	DeskStatusStateInitializing DeskStatusState = "Initializing"
-	DeskStatusStateReady        DeskStatusState = "Ready"
-	DeskStatusStateExpired      DeskStatusState = "Expired"
-	DeskStatusStateTerminating  DeskStatusState = "Terminating"
-
-	DeskStatusMsgInitializing DeskStatusMessage = "Desk is initializing, not ready yet"
-	DeskStatusMsgReady        DeskStatusMessage = "Desk is ready for use"
-	DeskStatusMsgExpired      DeskStatusMessage = "Desk is expired and no longer accessible"
-	DeskStatusMsgTerminating  DeskStatusMessage = "Desk is terminating"
-)
+func (d *Desk) DeepCopyObject() runtime.Object {
+	return &Desk{
+		TypeMeta:   d.TypeMeta,
+		ObjectMeta: d.ObjectMeta,
+		Spec:       d.Spec,
+		Status:     d.Status,
+	}
+}
 
 type DeskList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []Desk `json:"items"`
+}
+
+func (dl *DeskList) DeepCopyObject() runtime.Object {
+	items := make([]Desk, len(dl.Items))
+	copy(items, dl.Items)
+
+	return &DeskList{
+		TypeMeta: dl.TypeMeta,
+		ListMeta: dl.ListMeta,
+		Items:    items,
+	}
 }
