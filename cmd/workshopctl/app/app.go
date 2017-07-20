@@ -51,12 +51,12 @@ func Run() error {
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "version, v",
-							Value: workshopv1.DefaultDeskVersion,
+							Value: workshopv1.DeskDefaultVersion,
 							Usage: "create bench with version `VERSION`",
 						},
 						cli.StringFlag{
 							Name:  "lifespan, l",
-							Value: workshopv1.DefaultDeskLifespan.String(),
+							Value: workshopv1.DeskMaxLifespan.String(),
 							Usage: "duration of desk lifespan",
 						},
 					},

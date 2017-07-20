@@ -38,12 +38,6 @@ func (c *Client) CreateDesk(name, owner, version string, expirationTimestamp tim
 			Version:             version,
 			Owner:               owner,
 			ExpirationTimestamp: metav1.NewTime(expirationTimestamp),
-			// AutoUpdate: true|false,
-			// Environment: dev|integration|staging|production,
-		},
-		Status: workshopv1.DeskStatus{
-			State:   workshopv1.DeskStatusStateInitializing,
-			Message: workshopv1.DeskStatusMsgInitializing,
 		},
 	}
 	var result workshopv1.Desk

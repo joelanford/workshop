@@ -4,7 +4,7 @@ import (
 	"os"
 
 	log "github.com/go-kit/kit/log"
-	"github.com/joelanford/workshop/cmd/workshopcontroller/app"
+	"github.com/joelanford/workshop/cmd/workshop-controller/app"
 )
 
 func main() {

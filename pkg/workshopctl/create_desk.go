@@ -26,13 +26,13 @@ func CreateDesk() cli.ActionFunc {
 		owner := name
 		version := c.String("version")
 		if version == "" {
-			version = workshopv1.DefaultDeskVersion
+			version = workshopv1.DeskDefaultVersion
 		}
 
 		lifespanStr := c.String("lifespan")
 		lifespan, err := time.ParseDuration(lifespanStr)
 		if err != nil {
-			lifespan = workshopv1.DefaultDeskLifespan
+			lifespan = workshopv1.DeskMaxLifespan
 		}
 		expiration := time.Now().Add(lifespan)
 

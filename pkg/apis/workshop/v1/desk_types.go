@@ -29,8 +29,8 @@ type DeskStatusMessage string
 const (
 	DeskResourcePlural string = "desks"
 
-	DefaultDeskVersion  string        = "latest"
-	DefaultDeskLifespan time.Duration = time.Hour * 24 * 14
+	DeskDefaultVersion string        = "latest"
+	DeskMaxLifespan    time.Duration = time.Hour * 24 * 14
 
 	DeskStatusStateInitializing DeskStatusState = "Initializing"
 	DeskStatusStateReady        DeskStatusState = "Ready"
@@ -73,6 +73,14 @@ func (d *Desk) DeepCopyObject() runtime.Object {
 		Spec:       d.Spec,
 		Status:     d.Status,
 	}
+}
+
+func (d *Desk) IsStatusUpdate(old *Desk) bool {
+	return d.Status != old.Status
+}
+
+func (d *Desk) IsSpecUpdate(old *Desk) bool {
+	return d.Spec != old.Spec
 }
 
 type DeskList struct {
