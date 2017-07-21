@@ -72,7 +72,10 @@ func NewFromFile(kubeconfig string) (*Client, error) {
 	}
 	conf, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not load config from file")
+		conf, err = clientcmd.BuildConfigFromFlags("http://localhost:8080", "")
+		if err != nil {
+			return nil, errors.Wrapf(err, "could not load kubernetes config")
+		}
 	}
 
 	return New(conf)

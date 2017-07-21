@@ -105,21 +105,12 @@ func Run(logger log.Logger) error {
 		wg.Go(func() error { return controller.Run(ctx, expirationInterval) })
 
 		sigChan := make(chan os.Signal)
-		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1)
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
 		// wait until the controller is done or we get a SIGTERM
 		select {
-		case sig := <-sigChan:
-			switch sig {
-			case syscall.SIGTERM:
-				logger.Log("msg", "received SIGTERM, exiting gracefully...")
-			case syscall.SIGUSR1:
-				logger.Log("msg", "received SIGUSR1, cleaning up and exiting gracefully...")
-				if err := controller.Clean(); err != nil {
-					logger.Log("msg", "could not delete custom resource definition", "err", err)
-				}
-				logger.Log("msg", "successfully deleted custom resource definition")
-			}
+		case <-sigChan:
+			logger.Log("msg", "received SIGTERM, exiting gracefully...")
 		case <-ctx.Done():
 		}
 
