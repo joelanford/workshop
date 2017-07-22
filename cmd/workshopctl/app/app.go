@@ -10,7 +10,7 @@ import (
 	"github.com/urfave/cli"
 
 	workshopv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
-	"github.com/joelanford/workshop/pkg/workshopctl"
+	"github.com/joelanford/workshop/pkg/workshop/ctl"
 )
 
 var (
@@ -32,6 +32,8 @@ func Run() error {
 		app.Compiled = compiled
 	}
 
+	workshopctl := ctl.NewWorkshopctlCommand()
+
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:   "kubeconfig, c",
@@ -40,6 +42,10 @@ func Run() error {
 			Usage:  "load kubernetes config from `FILE`",
 		},
 	}
+	app.Before = func(c *cli.Context) error {
+		return workshopctl.Initialize(c.GlobalString("kubeconfig"))
+	}
+
 	app.Commands = []cli.Command{
 		{
 			Name:  "create",
@@ -60,7 +66,7 @@ func Run() error {
 							Usage: "duration of desk lifespan",
 						},
 					},
-					Action: workshopctl.CreateDesk(),
+					Action: workshopctl.CreateDesk,
 				},
 			},
 		},
@@ -71,7 +77,7 @@ func Run() error {
 				{
 					Name:    "desk",
 					Aliases: []string{"desks", "d"},
-					Action:  workshopctl.GetDesk(),
+					Action:  workshopctl.GetDesk,
 				},
 			},
 		},
@@ -88,7 +94,7 @@ func Run() error {
 							Usage: "delete all desks`",
 						},
 					},
-					Action: workshopctl.DeleteDesk(),
+					Action: workshopctl.DeleteDesk,
 				},
 			}},
 	}
