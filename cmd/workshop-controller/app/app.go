@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
+	"github.com/joelanford/workshop/cmd/workshop-controller/app/glogshim"
 	"github.com/joelanford/workshop/pkg/workshop/controller"
 )
 
@@ -30,6 +31,11 @@ var (
 
 func Run() error {
 	cli.VersionPrinter = printVersion
+	cli.VersionFlag = cli.BoolFlag{
+		Name:  "version",
+		Usage: "print the version",
+	}
+
 	app := cli.NewApp()
 
 	app.Name = "workshop-controller"
@@ -65,8 +71,11 @@ func Run() error {
 			Usage: "if set, will use as domain suffix for workshop services.",
 		},
 	}
+	app.Flags = append(app.Flags, glogshim.Flags...)
 
 	app.Action = func(c *cli.Context) error {
+		glogshim.ShimCLI(c)
+
 		domain := c.String("domain")
 		kubeconfig := c.String("kubeconfig")
 		initialSyncTimeout := c.Duration("initial-sync-timeout")

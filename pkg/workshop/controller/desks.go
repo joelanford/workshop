@@ -79,7 +79,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	trustedNamespace, err := c.createDeskNamespace(desk, trustedNamespaceName)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			glog.V(2).Info("Namespace \"%s\" for desk \"%s\" already exists", trustedNamespaceName, desk.Name)
+			glog.V(2).Infof("Namespace \"%s\" for desk \"%s\" already exists", trustedNamespaceName, desk.Name)
 			trustedNamespace, err = c.kubeClient.CoreV1().Namespaces().Get(trustedNamespaceName, metav1.GetOptions{})
 		} else {
 			glog.Error(err)
@@ -91,7 +91,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	defaultNamespace, err := c.createDeskNamespace(desk, defaultNamespaceName)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			glog.V(2).Info("Namespace \"%s\" for desk \"%s\" already exists", defaultNamespaceName, desk.Name)
+			glog.V(2).Infof("Namespace \"%s\" for desk \"%s\" already exists", defaultNamespaceName, desk.Name)
 			defaultNamespace, err = c.kubeClient.CoreV1().Namespaces().Get(defaultNamespaceName, metav1.GetOptions{})
 		} else {
 			glog.Error(err)
@@ -103,7 +103,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	sa, err := c.createDeskServiceAccount(desk, saName, trustedNamespace)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			glog.V(2).Info("ServiceAccount \"%s\" for desk \"%s\" already exists", saName, desk.Name)
+			glog.V(2).Infof("ServiceAccount \"%s\" for desk \"%s\" already exists", saName, desk.Name)
 			sa, err = c.kubeClient.CoreV1().ServiceAccounts(trustedNamespaceName).Get(saName, metav1.GetOptions{})
 		} else {
 			glog.Error(err)
@@ -115,7 +115,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	_, err = c.createDeskRoleBinding(desk, viewRbName, "view", sa, trustedNamespace)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			glog.V(2).Info("RoleBinding \"%s\" for desk \"%s\" already exists", viewRbName, desk.Name)
+			glog.V(2).Infof("RoleBinding \"%s\" for desk \"%s\" already exists", viewRbName, desk.Name)
 		} else {
 			glog.Error(err)
 		}
@@ -125,7 +125,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	_, err = c.createDeskRoleBinding(desk, editRbName, "edit", sa, defaultNamespace)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			glog.V(2).Info("RoleBinding \"%s\" for desk \"%s\" already exists", editRbName, desk.Name)
+			glog.V(2).Infof("RoleBinding \"%s\" for desk \"%s\" already exists", editRbName, desk.Name)
 		} else {
 			glog.Error(err)
 		}
@@ -135,7 +135,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	_, err = c.createDeskKubeshellDeployment(desk, kubeshellName, trustedNamespace, defaultNamespace)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			glog.V(2).Info("Deployment \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
+			glog.V(2).Infof("Deployment \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
 		} else {
 			glog.Error(err)
 		}
@@ -144,7 +144,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	_, err = c.createDeskKubeshellService(desk, kubeshellName, trustedNamespace)
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
-			glog.V(2).Info("Service \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
+			glog.V(2).Infof("Service \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
 		} else {
 			glog.Error(err)
 		}
@@ -154,7 +154,7 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 		_, err = c.createDeskKubeshellIngress(desk, kubeshellName, trustedNamespace, c.domain)
 		if err != nil {
 			if apierrors.IsAlreadyExists(err) {
-				glog.V(2).Info("Ingress \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
+				glog.V(2).Infof("Ingress \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
 			} else {
 				glog.Error(err)
 			}
