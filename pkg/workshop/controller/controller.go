@@ -2,12 +2,16 @@ package controller
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"time"
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	kcache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
 	apiv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
@@ -27,7 +31,8 @@ const (
 )
 
 type WorkshopController struct {
-	domain string
+	domain             string
+	initialSyncTimeout time.Duration
 
 	kubeClient     kubernetes.Interface
 	apiExtClient   apiextensionsclient.Interface
@@ -36,28 +41,24 @@ type WorkshopController struct {
 	desksStore      kcache.Store
 	desksController kcache.Controller
 	desksCache      map[string]*apiv1.Desk
-
-	initialSyncTimeout time.Duration
 }
 
-func NewWorkshopController(domain string, kubeClient kubernetes.Interface, apiExtClient apiextensionsclient.Interface, workshopClient workshop.Interface, timeout time.Duration) *WorkshopController {
+func NewWorkshopController(kubeconfig string, domain string, timeout time.Duration) (*WorkshopController, error) {
 	c := &WorkshopController{
-		domain: domain,
-
-		kubeClient:     kubeClient,
-		apiExtClient:   apiExtClient,
-		workshopClient: workshopClient,
+		domain:             domain,
+		initialSyncTimeout: timeout,
 
 		desksCache: make(map[string]*apiv1.Desk),
-
-		initialSyncTimeout: timeout,
+	}
+	if err := c.setClients(kubeconfig); err != nil {
+		return nil, err
 	}
 	c.setDesksStore()
-	return c
+	return c, nil
 }
 
 func (c *WorkshopController) Start(ctx context.Context) error {
-	glog.V(2).Infof("Creating desk custom resource definitions")
+	glog.V(1).Infof("Creating desk custom resource definitions")
 	if err := c.createDeskCRD(); err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			glog.V(1).Infoln("Desk custom resource definition already exists, continuing execution")
@@ -74,6 +75,40 @@ func (c *WorkshopController) Start(ctx context.Context) error {
 }
 
 func (c *WorkshopController) Clean() error {
-	glog.Infof("Cleaning deskController resources")
+	glog.V(1).Infof("Deleting desk custom resource definition")
 	return c.deleteDeskCRD()
+}
+
+func (c *WorkshopController) setClients(kubeconfig string) error {
+	var (
+		config *rest.Config
+		err    error
+	)
+
+	defaultKubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	if kubeconfig != "" {
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+	} else if _, err := os.Stat(defaultKubeconfig); err == nil {
+		config, err = clientcmd.BuildConfigFromFlags("", defaultKubeconfig)
+	} else {
+		if config, err = rest.InClusterConfig(); err != nil {
+			config, _ = clientcmd.BuildConfigFromFlags("http://localhost:8080", "")
+		}
+	}
+
+	c.kubeClient, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c.apiExtClient, err = apiextensionsclient.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c.workshopClient, err = workshop.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	return nil
 }

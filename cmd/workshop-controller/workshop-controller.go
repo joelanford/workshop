@@ -17,30 +17,21 @@ limitations under the License.
 package main
 
 import (
-	goflag "flag"
+	"flag"
 
 	"github.com/golang/glog"
-	"github.com/spf13/pflag"
 
-	"k8s.io/apiserver/pkg/util/flag"
 	"k8s.io/kubernetes/pkg/util/logs"
 
 	"github.com/joelanford/workshop/cmd/workshop-controller/app"
-	"github.com/joelanford/workshop/cmd/workshop-controller/app/options"
-	"github.com/joelanford/workshop/pkg/workshop/controller/version"
 )
 
 func main() {
-	config := options.NewWorkshopControllerConfig()
-	config.AddFlags(pflag.CommandLine)
-	flag.InitFlags()
-	goflag.CommandLine.Parse([]string{})
+	flag.CommandLine.Parse([]string{})
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
-	version.PrintAndExitIfRequested()
-	glog.V(0).Infof("version: %+v", version.VERSION)
-
-	server := app.NewWorkshopControllerServerDefault(config)
-	server.Run()
+	if err := app.Run(); err != nil {
+		glog.Fatal(err)
+	}
 }

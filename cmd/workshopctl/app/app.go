@@ -53,7 +53,7 @@ func Run() error {
 			Subcommands: cli.Commands{
 				{
 					Name:    "desk",
-					Aliases: []string{"d"},
+					Aliases: []string{"desks", "d"},
 					Flags: []cli.Flag{
 						cli.StringFlag{
 							Name:  "version, v",

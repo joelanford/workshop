@@ -112,9 +112,11 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) error {
 		return err
 	}
 
-	_, err = c.createDeskKubeshellIngress(desk, trustedNamespace, c.domain)
-	if err != nil {
-		return err
+	if c.domain != "" {
+		_, err = c.createDeskKubeshellIngress(desk, trustedNamespace, c.domain)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
