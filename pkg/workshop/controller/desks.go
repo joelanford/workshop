@@ -59,9 +59,11 @@ func (c *WorkshopController) handleDeskAdd(obj interface{}) {
 }
 
 func (c *WorkshopController) handleDeskUpdate(oldObj, newObj interface{}) {
-	if d, ok := newObj.(*apiv1.Desk); ok {
-		if err := c.updateDeskResources(d); err != nil {
-			glog.Errorf("Error in updateDesk(%v): %v", d.Name, err)
+	oldDesk, oldDeskOk := oldObj.(*apiv1.Desk)
+	newDesk, newDeskOk := newObj.(*apiv1.Desk)
+	if oldDeskOk && newDeskOk {
+		if err := c.updateDeskResources(oldDesk, newDesk); err != nil {
+			glog.Errorf("Error in updateDesk(%v, %v): %v", oldDesk.Name, newDesk.Name, err)
 		}
 	}
 }
@@ -122,8 +124,13 @@ func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) error {
 	return nil
 }
 
-func (c *WorkshopController) updateDeskResources(desk *apiv1.Desk) error {
-	glog.V(0).Infof("Updating resources for desk \"%s\"", desk.Name)
+func (c *WorkshopController) updateDeskResources(old, new *apiv1.Desk) error {
+	glog.V(0).Infof("Updating resources for desk \"%s\"", new.Name)
+	if old.ResourceVersion == new.ResourceVersion {
+		glog.V(0).Infof("No changes changes for desk \"%s\"", new.Name)
+		return nil
+	}
+	glog.V(0).Infof("Applying changes for desk \"%s\"", new.Name)
 	return nil
 }
 
