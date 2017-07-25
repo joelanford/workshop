@@ -9,14 +9,14 @@ import (
 	apiv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
 )
 
-func (c *WorkshopController) createDeskKubeshellService(desk *apiv1.Desk, namespace *v1.Namespace) (*v1.Service, error) {
+func (c *WorkshopController) createDeskKubeshellService(desk *apiv1.Desk, name string, namespace *v1.Namespace) (*v1.Service, error) {
 	kubeshellLabels := map[string]string{
-		"app": "kubeshell",
+		"app": name,
 	}
 
 	service, err := c.kubeClient.CoreV1().Services(namespace.Name).Create(&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubeshell",
+			Name: name,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: apiv1.SchemeGroupVersion.String(),

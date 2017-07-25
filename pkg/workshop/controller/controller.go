@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
-	apiv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
 	"github.com/joelanford/workshop/pkg/client/workshop"
 )
 
@@ -40,15 +39,12 @@ type WorkshopController struct {
 
 	desksStore      kcache.Store
 	desksController kcache.Controller
-	desksCache      map[string]*apiv1.Desk
 }
 
 func NewWorkshopController(kubeconfig string, domain string, timeout time.Duration) (*WorkshopController, error) {
 	c := &WorkshopController{
 		domain:             domain,
 		initialSyncTimeout: timeout,
-
-		desksCache: make(map[string]*apiv1.Desk),
 	}
 	if err := c.setClients(kubeconfig); err != nil {
 		return nil, err

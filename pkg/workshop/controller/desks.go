@@ -3,6 +3,8 @@ package controller
 import (
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/pkg/api/v1"
 	kcache "k8s.io/client-go/tools/cache"
@@ -52,9 +54,7 @@ func (c *WorkshopController) waitForDesksSynced() error {
 
 func (c *WorkshopController) handleDeskAdd(obj interface{}) {
 	if d, ok := obj.(*apiv1.Desk); ok {
-		if err := c.createDeskResources(d); err != nil {
-			glog.Errorf("Error in createDesk(%v): %v", d.Name, err)
-		}
+		c.createDeskResources(d)
 	}
 }
 
@@ -62,88 +62,124 @@ func (c *WorkshopController) handleDeskUpdate(oldObj, newObj interface{}) {
 	oldDesk, oldDeskOk := oldObj.(*apiv1.Desk)
 	newDesk, newDeskOk := newObj.(*apiv1.Desk)
 	if oldDeskOk && newDeskOk {
-		if err := c.updateDeskResources(oldDesk, newDesk); err != nil {
-			glog.Errorf("Error in updateDesk(%v, %v): %v", oldDesk.Name, newDesk.Name, err)
-		}
+		c.updateDeskResources(oldDesk, newDesk)
 	}
 }
 
 func (c *WorkshopController) handleDeskDelete(obj interface{}) {
 	if d, ok := obj.(*apiv1.Desk); ok {
-		if err := c.deleteDeskResources(d); err != nil {
-			glog.Errorf("Error in deleteDesk(%v): %v", d.Name, err)
-		}
+		c.deleteDeskResources(d)
 	}
 }
 
-func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) error {
+func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	glog.V(0).Infof("Creating resources for desk \"%s\"", desk.Name)
 
-	trustedNamespace, err := c.createDeskNamespace(desk, fmt.Sprintf("%s-desk-trusted", desk.Name))
+	trustedNamespaceName := fmt.Sprintf("%s-desk-trusted", desk.Name)
+	trustedNamespace, err := c.createDeskNamespace(desk, trustedNamespaceName)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			glog.V(2).Info("Namespace \"%s\" for desk \"%s\" already exists", trustedNamespaceName, desk.Name)
+			trustedNamespace, err = c.kubeClient.CoreV1().Namespaces().Get(trustedNamespaceName, metav1.GetOptions{})
+		} else {
+			glog.Error(err)
+			return
+		}
 	}
 
-	defaultNamespace, err := c.createDeskNamespace(desk, fmt.Sprintf("%s-desk-default", desk.Name))
+	defaultNamespaceName := fmt.Sprintf("%s-desk-default", desk.Name)
+	defaultNamespace, err := c.createDeskNamespace(desk, defaultNamespaceName)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			glog.V(2).Info("Namespace \"%s\" for desk \"%s\" already exists", defaultNamespaceName, desk.Name)
+			defaultNamespace, err = c.kubeClient.CoreV1().Namespaces().Get(defaultNamespaceName, metav1.GetOptions{})
+		} else {
+			glog.Error(err)
+			return
+		}
 	}
 
-	sa, err := c.createDeskServiceAccount(desk, trustedNamespace)
+	saName := desk.Spec.Owner
+	sa, err := c.createDeskServiceAccount(desk, saName, trustedNamespace)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			glog.V(2).Info("ServiceAccount \"%s\" for desk \"%s\" already exists", saName, desk.Name)
+			sa, err = c.kubeClient.CoreV1().ServiceAccounts(trustedNamespaceName).Get(saName, metav1.GetOptions{})
+		} else {
+			glog.Error(err)
+			return
+		}
 	}
 
-	_, err = c.createDeskRoleBinding(desk, "view", sa, trustedNamespace)
+	viewRbName := fmt.Sprintf("%s-%s", sa.Name, "view")
+	_, err = c.createDeskRoleBinding(desk, viewRbName, "view", sa, trustedNamespace)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			glog.V(2).Info("RoleBinding \"%s\" for desk \"%s\" already exists", viewRbName, desk.Name)
+		} else {
+			glog.Error(err)
+		}
 	}
 
-	_, err = c.createDeskRoleBinding(desk, "edit", sa, defaultNamespace)
+	editRbName := fmt.Sprintf("%s-%s", sa.Name, "edit")
+	_, err = c.createDeskRoleBinding(desk, editRbName, "edit", sa, defaultNamespace)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			glog.V(2).Info("RoleBinding \"%s\" for desk \"%s\" already exists", editRbName, desk.Name)
+		} else {
+			glog.Error(err)
+		}
 	}
 
-	_, err = c.createDeskKubeshellDeployment(desk, trustedNamespace, defaultNamespace)
+	kubeshellName := "kubeshell"
+	_, err = c.createDeskKubeshellDeployment(desk, kubeshellName, trustedNamespace, defaultNamespace)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			glog.V(2).Info("Deployment \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
+		} else {
+			glog.Error(err)
+		}
 	}
 
-	_, err = c.createDeskKubeshellService(desk, trustedNamespace)
+	_, err = c.createDeskKubeshellService(desk, kubeshellName, trustedNamespace)
 	if err != nil {
-		return err
+		if apierrors.IsAlreadyExists(err) {
+			glog.V(2).Info("Service \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
+		} else {
+			glog.Error(err)
+		}
 	}
 
 	if c.domain != "" {
-		_, err = c.createDeskKubeshellIngress(desk, trustedNamespace, c.domain)
+		_, err = c.createDeskKubeshellIngress(desk, kubeshellName, trustedNamespace, c.domain)
 		if err != nil {
-			return err
+			if apierrors.IsAlreadyExists(err) {
+				glog.V(2).Info("Ingress \"%s\" for desk \"%s\" already exists", kubeshellName, desk.Name)
+			} else {
+				glog.Error(err)
+			}
 		}
 	}
-
-	return nil
 }
 
-func (c *WorkshopController) updateDeskResources(old, new *apiv1.Desk) error {
+func (c *WorkshopController) updateDeskResources(old, new *apiv1.Desk) {
 	glog.V(0).Infof("Updating resources for desk \"%s\"", new.Name)
 	if old.ResourceVersion == new.ResourceVersion {
 		glog.V(0).Infof("No changes changes for desk \"%s\"", new.Name)
-		return nil
+		return
 	}
 	glog.V(0).Infof("Applying changes for desk \"%s\"", new.Name)
-	return nil
 }
 
-func (c *WorkshopController) deleteDeskResources(desk *apiv1.Desk) error {
+func (c *WorkshopController) deleteDeskResources(desk *apiv1.Desk) {
 	glog.V(0).Infof("Deleting resources for desk \"%s\"", desk.Name)
 
-	if err := c.deleteDeskNamespace(desk, fmt.Sprintf("%s-desk-trusted", desk.Name)); err != nil {
-		return err
+	trustedNamespaceName := fmt.Sprintf("%s-desk-trusted", desk.Name)
+	if err := c.deleteDeskNamespace(desk, trustedNamespaceName); err != nil {
+		glog.Errorf("Error deleting namespace \"%s\" for desk \"%s\": %s", trustedNamespaceName, desk.Name, err)
 	}
 
 	if err := c.deleteDeskNamespace(desk, fmt.Sprintf("%s-desk-default", desk.Name)); err != nil {
-		return err
+		glog.Errorf("Error deleting namespace \"%s\" for desk \"%s\": %s", trustedNamespaceName, desk.Name, err)
 	}
-
-	return nil
 }

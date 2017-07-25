@@ -9,14 +9,14 @@ import (
 	apiv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
 )
 
-func (c *WorkshopController) createDeskKubeshellDeployment(desk *apiv1.Desk, inNamespace *v1.Namespace, kubectlNamespace *v1.Namespace) (*extensionsv1beta1.Deployment, error) {
+func (c *WorkshopController) createDeskKubeshellDeployment(desk *apiv1.Desk, name string, inNamespace *v1.Namespace, kubectlNamespace *v1.Namespace) (*extensionsv1beta1.Deployment, error) {
 	replicas := int32(1)
 	kubeshellLabels := map[string]string{
-		"app": "kubeshell",
+		"app": name,
 	}
 	deployment, err := c.kubeClient.ExtensionsV1beta1().Deployments(inNamespace.Name).Create(&extensionsv1beta1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "kubeshell",
+			Name:   name,
 			Labels: kubeshellLabels,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -40,7 +40,7 @@ func (c *WorkshopController) createDeskKubeshellDeployment(desk *apiv1.Desk, inN
 					ServiceAccountName: desk.Name,
 					Containers: []v1.Container{
 						{
-							Name:  "kubeshell",
+							Name:  name,
 							Image: "joelanford/kubeshell:v1.7.0-latest",
 							Env: []v1.EnvVar{
 								{Name: "KS_USER", Value: desk.Spec.Owner},

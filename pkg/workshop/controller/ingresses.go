@@ -12,11 +12,11 @@ import (
 	apiv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
 )
 
-func (c *WorkshopController) createDeskKubeshellIngress(desk *apiv1.Desk, namespace *v1.Namespace, domain string) (*extensionsv1beta1.Ingress, error) {
+func (c *WorkshopController) createDeskKubeshellIngress(desk *apiv1.Desk, name string, namespace *v1.Namespace, domain string) (*extensionsv1beta1.Ingress, error) {
 	deskDomain := fmt.Sprintf("%s.%s", desk.Name, domain)
 	ingress, err := c.kubeClient.ExtensionsV1beta1().Ingresses(namespace.Name).Create(&extensionsv1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubeshell",
+			Name: name,
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.allow-http":     "false",
 				"ingress.kubernetes.io/rewrite-target": "/",
@@ -41,9 +41,9 @@ func (c *WorkshopController) createDeskKubeshellIngress(desk *apiv1.Desk, namesp
 						HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
 							Paths: []extensionsv1beta1.HTTPIngressPath{
 								{
-									Path: "/kubeshell",
+									Path: fmt.Sprintf("/%s", name),
 									Backend: extensionsv1beta1.IngressBackend{
-										ServiceName: "kubeshell",
+										ServiceName: name,
 										ServicePort: intstr.FromInt(4200),
 									},
 								},
