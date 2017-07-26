@@ -3,4 +3,4 @@
 // license that can be found in the LICENSE file.
 
 // secure is a repository of text security related packages.
-package secure
+package secure // import "golang.org/x/text/secure"

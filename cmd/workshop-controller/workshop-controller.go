@@ -21,15 +21,14 @@ import (
 
 	"github.com/golang/glog"
 
-	"k8s.io/kubernetes/pkg/util/logs"
-
 	"github.com/joelanford/workshop/cmd/workshop-controller/app"
+	"github.com/joelanford/workshop/cmd/workshop-controller/app/glogshim"
 )
 
 func main() {
 	flag.CommandLine.Parse([]string{})
-	logs.InitLogs()
-	defer logs.FlushLogs()
+	glogshim.InitLogs()
+	defer glogshim.FlushLogs()
 
 	if err := app.Run(); err != nil {
 		glog.Fatal(err)

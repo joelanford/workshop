@@ -3,7 +3,12 @@ package glogshim
 import (
 	"flag"
 	"fmt"
+	"log"
+	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/golang/glog"
 	"github.com/urfave/cli"
 )
 
@@ -54,4 +59,25 @@ func shimFlag(fakeVals map[string]string) {
 			fl.Value.Set(val)
 		}
 	})
+}
+
+// GlogWriter serves as a bridge between the standard log package and the glog package.
+type GlogWriter struct{}
+
+// Write implements the io.Writer interface.
+func (writer GlogWriter) Write(data []byte) (n int, err error) {
+	glog.Info(string(data))
+	return len(data), nil
+}
+
+// InitLogs initializes logs the way we want for kubernetes.
+func InitLogs() {
+	log.SetOutput(GlogWriter{})
+	log.SetFlags(0)
+	go wait.Until(glog.Flush, 5*time.Second, wait.NeverStop)
+}
+
+// FlushLogs flushes logs immediately.
+func FlushLogs() {
+	glog.Flush()
 }
