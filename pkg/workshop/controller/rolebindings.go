@@ -31,7 +31,7 @@ func (c *WorkshopController) createDeskRoleBinding(desk *apiv1.Desk, name, role 
 			{
 				Kind:      rbacv1beta1.ServiceAccountKind,
 				Name:      sa.Name,
-				Namespace: namespace.Name,
+				Namespace: sa.Namespace,
 			},
 		},
 	})
