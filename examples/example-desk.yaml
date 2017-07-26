@@ -1,6 +1,0 @@
-apiVersion: workshop.lanford.io/v1
-kind: Desk
-metadata:
-  name: example
-spec:
-  owner: example
