@@ -61,7 +61,7 @@ func Run() error {
 							Usage: "create bench with version `VERSION`",
 						},
 						cli.StringFlag{
-							Name:  "lifespan, l",
+							Name:  "expiration, e",
 							Value: workshopv1.DeskMaxLifespan.String(),
 							Usage: "duration of desk lifespan",
 						},

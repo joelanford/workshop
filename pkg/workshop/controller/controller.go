@@ -65,6 +65,16 @@ func (c *WorkshopController) Start(ctx context.Context) error {
 	glog.V(2).Infof("Starting desksController")
 	go c.desksController.Run(ctx.Done())
 
+	//
+	// TODO:
+	//       If a desk was deleted while the controller was not running, this
+	//       controller won't know about it as is. To fix that, we need to
+	//       check to see if any namespaces are owned by a desk that no longer
+	//       exists. If we find any, we should delete them. Deleting a
+	//       namespace will also remove all of the resources in that namespace,
+	//       so we don't need to check other namespaced resource types.
+	//
+
 	// Wait synchronously for the initial list operations to be
 	// complete of desks from APIServer.
 	return c.waitForDesksSynced()

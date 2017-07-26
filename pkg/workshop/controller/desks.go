@@ -75,6 +75,24 @@ func (c *WorkshopController) handleDeskDelete(obj interface{}) {
 func (c *WorkshopController) createDeskResources(desk *apiv1.Desk) {
 	glog.V(0).Infof("Creating resources for desk \"%s\"", desk.Name)
 
+	//
+	// TODO:
+	//       Find a home for desk expiration. If this were uncommented, it
+	//       would be buggy as is because the goroutine is not cancelled if
+	//       the desk is deleted externally or if the expiration timestamp is
+	//       changed.  The correct approach is probably to create a
+	//       "DeskManager" struct for each active desk and coordinate all
+	//       create, delete, update and expire functions through it.
+	//
+	// go func() {
+	// 	<-time.After(time.Until(desk.Spec.ExpirationTimestamp.Time))
+	// 	if err := c.workshopClient.WorkshopV1().Desks().Delete(desk.Name, nil); err != nil {
+	// 		glog.Errorf("Could not delete expired desk \"%s\": %s", desk.Name, err)
+	// 		return
+	// 	}
+	// 	glog.V(0).Infof("Deleted expired desk \"%s\"", desk.Name)
+	// }()
+
 	trustedNamespaceName := fmt.Sprintf("%s-desk-trusted", desk.Name)
 	trustedNamespace, err := c.createDeskNamespace(desk, trustedNamespaceName)
 	if err != nil {

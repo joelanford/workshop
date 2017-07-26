@@ -25,7 +25,7 @@ func (c *WorkshopController) createDeskNamespace(desk *apiv1.Desk, name string) 
 	if err != nil {
 		return nil, err
 	}
-	glog.V(0).Infof("Created namespace \"%s\" for desk \"%s\"", namespace.Name, desk.Name)
+	glog.V(1).Infof("Created namespace \"%s\" for desk \"%s\"", namespace.Name, desk.Name)
 	return namespace, nil
 }
 
@@ -34,7 +34,7 @@ func (c *WorkshopController) deleteDeskNamespace(desk *apiv1.Desk, name string) 
 	if err != nil {
 		return err
 	}
-	glog.V(0).Infof("Deleted namespace \"%s\" for desk \"%s\"", name, desk.Name)
+	glog.V(1).Infof("Deleted namespace \"%s\" for desk \"%s\"", name, desk.Name)
 
 	return nil
 }
