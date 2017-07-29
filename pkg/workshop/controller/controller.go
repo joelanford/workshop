@@ -8,12 +8,14 @@ import (
 
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	kcache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/golang/glog"
+	workshopv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
 	"github.com/joelanford/workshop/pkg/client/workshop"
 )
 
@@ -62,18 +64,11 @@ func (c *WorkshopController) Start(ctx context.Context) error {
 			glog.Fatalf("Could not create Desk custom resource definition: %v", err)
 		}
 	}
+
+	c.cleanStaleResources()
+
 	glog.V(2).Infof("Starting desksController")
 	go c.desksController.Run(ctx.Done())
-
-	//
-	// TODO:
-	//       If a desk was deleted while the controller was not running, this
-	//       controller won't know about it as is. To fix that, we need to
-	//       check to see if any namespaces are owned by a desk that no longer
-	//       exists. If we find any, we should delete them. Deleting a
-	//       namespace will also remove all of the resources in that namespace,
-	//       so we don't need to check other namespaced resource types.
-	//
 
 	// Wait synchronously for the initial list operations to be
 	// complete of desks from APIServer.
@@ -117,4 +112,36 @@ func (c *WorkshopController) setClients(kubeconfig string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *WorkshopController) cleanStaleResources() {
+	glog.V(1).Infof("Cleaning up desk resources whose desk is no longer present...")
+	nsList, err := c.kubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		glog.Errorf("Error listing namespaces for staleness check and removal: %s", err)
+	}
+
+	deskList, err := c.workshopClient.WorkshopV1().Desks().List(metav1.ListOptions{})
+	if err != nil {
+		glog.Errorf("Error listing desks for staleness check and removal: %s", err)
+	}
+	deskMap := make(map[string]workshopv1.Desk)
+	for _, desk := range deskList.Items {
+		deskMap[desk.Name] = desk
+	}
+
+	for _, namespace := range nsList.Items {
+	ownerRefsLoop:
+		for _, ownerRef := range namespace.OwnerReferences {
+			if ownerRef.Kind == workshopv1.DeskKind {
+				if _, ok := deskMap[ownerRef.Name]; !ok {
+					if err := c.kubeClient.CoreV1().Namespaces().Delete(namespace.Name, nil); err != nil {
+						glog.Errorf("Error removing stale namespace \"%s\": %s", namespace.Name, err)
+						break ownerRefsLoop
+					}
+					glog.V(0).Infof("Removed stale namespace \"%s\", which was owned by non-existent desk \"%s\"", namespace.Name, ownerRef.Name)
+				}
+			}
+		}
+	}
 }
