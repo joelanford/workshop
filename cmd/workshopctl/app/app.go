@@ -3,7 +3,6 @@ package app
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
@@ -37,7 +36,6 @@ func Run() error {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:   "kubeconfig, c",
-			Value:  filepath.Join(os.Getenv("HOME"), ".kube", "config"),
 			EnvVar: "KUBECONFIG",
 			Usage:  "load kubernetes config from `FILE`",
 		},
@@ -58,7 +56,7 @@ func Run() error {
 						cli.StringFlag{
 							Name:  "version, v",
 							Value: workshopv1.DeskDefaultVersion,
-							Usage: "create bench with version `VERSION`",
+							Usage: "create desk with version `VERSION`",
 						},
 						cli.StringFlag{
 							Name:  "expiration, e",

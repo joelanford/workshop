@@ -37,7 +37,7 @@ func (c *WorkshopctlCommand) Initialize(kubeconfig string) error {
 		if err != nil {
 			return err
 		}
-	} else if _, err := os.Stat(defaultKubeconfig); err != nil {
+	} else if _, err := os.Stat(defaultKubeconfig); err == nil {
 		config, err = clientcmd.BuildConfigFromFlags("", defaultKubeconfig)
 		if err != nil {
 			return err
