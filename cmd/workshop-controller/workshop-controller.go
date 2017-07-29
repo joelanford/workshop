@@ -31,6 +31,6 @@ func main() {
 	defer glogshim.FlushLogs()
 
 	if err := app.Run(); err != nil {
-		glog.Fatal(err)
+		glog.Errorln(err)
 	}
 }

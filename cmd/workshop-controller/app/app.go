@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"sort"
-	"strings"
 	"syscall"
 	"time"
 
@@ -93,7 +91,7 @@ func Run() error {
 		}
 
 		if domain != "" {
-			if ok := validateDomain(domain); !ok {
+			if ok := isDomainName(domain); !ok {
 				return fmt.Errorf("Invalid domain: %s", domain)
 			}
 		}
@@ -157,13 +155,7 @@ func printVersion(c *cli.Context) {
 	fmt.Printf("Version:     %s\nBuild Time:  %s\nBuild User:  %s\nGit Hash:    %s\n", version, buildTime, buildUser, gitHash)
 }
 
-func validateDomain(domain string) bool {
-	parsed, err := url.Parse(domain)
-	if err != nil {
-		return false
-	}
-	if parsed.Scheme != "" || parsed.Path != "" || strings.Contains(parsed.Host, ":") {
-		return false
-	}
-	return true
+func isDomainName(domain string) bool {
+	// TODO: fix this
+	return false
 }
