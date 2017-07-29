@@ -187,6 +187,7 @@ func (c *WorkshopController) updateDeskResources(old, new *apiv1.Desk) {
 		return
 	}
 	glog.V(0).Infof("Applying changes for desk \"%s\"", new.Name)
+	c.createDeskResources(new)
 }
 
 func (c *WorkshopController) deleteDeskResources(desk *apiv1.Desk) {

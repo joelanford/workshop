@@ -41,6 +41,9 @@ type WorkshopController struct {
 
 	desksStore      kcache.Store
 	desksController kcache.Controller
+
+	namespacesStore      kcache.Store
+	namespacesController kcache.Controller
 }
 
 func NewWorkshopController(kubeconfig string, domain string, timeout time.Duration) (*WorkshopController, error) {
@@ -52,6 +55,7 @@ func NewWorkshopController(kubeconfig string, domain string, timeout time.Durati
 		return nil, err
 	}
 	c.setDesksStore()
+	c.setNamespacesStore()
 	return c, nil
 }
 
@@ -69,10 +73,15 @@ func (c *WorkshopController) Start(ctx context.Context) error {
 
 	glog.V(2).Infof("Starting desksController")
 	go c.desksController.Run(ctx.Done())
+	go c.namespacesController.Run(ctx.Done())
 
+	// TODO: Refactor and improve this to wait concurrently for all resources
+	// to sync.
+	//
 	// Wait synchronously for the initial list operations to be
 	// complete of desks from APIServer.
-	return c.waitForDesksSynced()
+	c.waitForDesksSynced()
+	return c.waitForNamespacesSynced()
 }
 
 func (c *WorkshopController) Clean() error {
