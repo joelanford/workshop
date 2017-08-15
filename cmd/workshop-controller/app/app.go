@@ -157,5 +157,5 @@ func printVersion(c *cli.Context) {
 
 func isDomainName(domain string) bool {
 	// TODO: fix this
-	return false
+	return true
 }
