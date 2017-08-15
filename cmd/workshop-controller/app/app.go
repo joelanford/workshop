@@ -6,18 +6,23 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"syscall"
 	"time"
 
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+
 	"golang.org/x/sync/errgroup"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
 	"github.com/joelanford/workshop/cmd/workshop-controller/app/glogshim"
-	"github.com/joelanford/workshop/pkg/workshop/controller"
+	"github.com/joelanford/workshop/pkg/controller/workshop"
 )
 
 var (
@@ -59,11 +64,6 @@ func Run() error {
 			Value: 8081,
 			Usage: "port on which to serve a workshop-controller readiness probe.",
 		},
-		cli.DurationFlag{
-			Name:  "initial-sync-timeout, t",
-			Value: time.Minute,
-			Usage: "timeout for initial resource sync.",
-		},
 		cli.StringFlag{
 			Name:  "domain, d",
 			Usage: "if set, will use as domain suffix for workshop services.",
@@ -76,11 +76,25 @@ func Run() error {
 
 		domain := c.String("domain")
 		kubeconfig := c.String("kubeconfig")
-		initialSyncTimeout := c.Duration("initial-sync-timeout")
 		healthzPort := c.Int("healthz-port")
 		clean := c.IsSet("clean")
 
-		wc, err := controller.NewWorkshopController(kubeconfig, domain, initialSyncTimeout)
+		var (
+			config *rest.Config
+			err    error
+		)
+		defaultKubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+		if kubeconfig != "" {
+			config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		} else if _, err := os.Stat(defaultKubeconfig); err == nil {
+			config, err = clientcmd.BuildConfigFromFlags("", defaultKubeconfig)
+		} else {
+			if config, err = rest.InClusterConfig(); err != nil {
+				config, _ = clientcmd.BuildConfigFromFlags("http://localhost:8080", "")
+			}
+		}
+
+		wc, err := workshop.NewController(config, domain, logrus.New())
 		if err != nil {
 			return err
 		}
@@ -88,12 +102,6 @@ func Run() error {
 		if clean {
 			glog.V(0).Infof("Cleaning workshop resources and exiting.")
 			return wc.Clean()
-		}
-
-		if domain != "" {
-			if ok := isDomainName(domain); !ok {
-				return fmt.Errorf("Invalid domain: %s", domain)
-			}
 		}
 
 		for _, flagName := range c.GlobalFlagNames() {
@@ -153,9 +161,4 @@ func Run() error {
 
 func printVersion(c *cli.Context) {
 	fmt.Printf("Version:     %s\nBuild Time:  %s\nBuild User:  %s\nGit Hash:    %s\n", version, buildTime, buildUser, gitHash)
-}
-
-func isDomainName(domain string) bool {
-	// TODO: fix this
-	return true
 }
