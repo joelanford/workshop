@@ -17,20 +17,13 @@ limitations under the License.
 package main
 
 import (
-	"flag"
-
-	"github.com/golang/glog"
-
+	"github.com/Sirupsen/logrus"
 	"github.com/joelanford/workshop/cmd/workshop-controller/app"
-	"github.com/joelanford/workshop/cmd/workshop-controller/app/glogshim"
 )
 
 func main() {
-	flag.CommandLine.Parse([]string{})
-	glogshim.InitLogs()
-	defer glogshim.FlushLogs()
-
-	if err := app.Run(); err != nil {
-		glog.Errorln(err)
+	logger := logrus.New()
+	if err := app.Run(logger); err != nil {
+		logger.Errorln(err)
 	}
 }

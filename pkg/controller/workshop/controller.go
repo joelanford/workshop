@@ -17,6 +17,7 @@ import (
 
 type Controller struct {
 	deskController *desk.Controller
+	logger         *logrus.Logger
 }
 
 func NewController(config *rest.Config, domain string, logger *logrus.Logger) (*Controller, error) {
@@ -37,13 +38,14 @@ func NewController(config *rest.Config, domain string, logger *logrus.Logger) (*
 
 	c := &Controller{
 		deskController: desk.NewController(kubeClient, apiExtClient, workshopClient, domain, logger),
+		logger:         logger,
 	}
 
 	return c, nil
 }
 
 func (c *Controller) Start(ctx context.Context) error {
-	wg, ctx := errgroup.WithContext(ctx)
+	wg, _ := errgroup.WithContext(ctx)
 	wg.Go(func() error {
 		return c.deskController.Start(ctx)
 	})

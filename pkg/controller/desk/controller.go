@@ -8,6 +8,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/joelanford/workshop/pkg/client/workshop"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -23,14 +24,24 @@ type Controller struct {
 
 	crdManager *CRDManager
 
+	desks           map[string]Manager
 	cacheStore      kcache.Store
 	cacheController kcache.Controller
 
+	domain string
 	logger *logrus.Logger
 }
 
 func NewController(kubeClient kubernetes.Interface, apiExtClient apiextensionsclient.Interface, workshopClient workshop.Interface, domain string, logger *logrus.Logger) *Controller {
-	cacheStore, cacheController := kcache.NewInformer(
+	c := &Controller{
+		kubeClient:     kubeClient,
+		workshopClient: workshopClient,
+		crdManager:     NewCRDManager(apiExtClient),
+		desks:          make(map[string]Manager),
+		domain:         domain,
+		logger:         logger,
+	}
+	c.cacheStore, c.cacheController = kcache.NewInformer(
 		kcache.NewListWatchFromClient(
 			workshopClient.WorkshopV1().RESTClient(),
 			"desks",
@@ -38,28 +49,29 @@ func NewController(kubeClient kubernetes.Interface, apiExtClient apiextensionscl
 			fields.Everything()),
 		&workshopv1.Desk{},
 		5*time.Minute,
-		NewEventHandler(kubeClient, domain, logger),
+		kcache.ResourceEventHandlerFuncs{
+			AddFunc:    c.onAdd,
+			UpdateFunc: c.onUpdate,
+			DeleteFunc: c.onDelete,
+		},
 	)
-	return &Controller{
-		kubeClient:     kubeClient,
-		workshopClient: workshopClient,
-		crdManager:     NewCRDManager(apiExtClient),
-
-		cacheStore:      cacheStore,
-		cacheController: cacheController,
-		logger:          logger,
-	}
+	return c
 }
 
 func (c *Controller) Start(ctx context.Context) error {
 	// Create the Desk CRD and wait for it to be ready.
+	c.logger.Info("creating desk custom resource definition...")
 	if err := c.crdManager.CreateAndWait(); err != nil {
-		return err
+		if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+		c.logger.Info("skipping: desk custom resource definition already exists")
+	} else {
+		c.logger.Info("created desk custom resource definition")
 	}
-	c.logger.Info("created desk custom resource definition")
 
 	// Start the cache controller
-	c.cacheController.Run(ctx.Done())
+	go c.cacheController.Run(ctx.Done())
 
 	// Wait until the cache controller has synced.
 	timeout := time.After(5 * time.Second)
@@ -70,16 +82,15 @@ func (c *Controller) Start(ctx context.Context) error {
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for cache initialization")
 		case <-ticker.C:
-			c.logger.Info("waiting for desks to be initialized from apiserver...")
+			c.logger.Info("waiting for desk cache to be initialized from apiserver...")
 		}
 	}
-	ticker.Stop()
+	c.logger.Info("successfully initialized desk cache")
 
 	// Delete resources whose desk resource is no longer present.
 	if err := c.deleteStaleResources(); err != nil {
-		c.logger.Errorf("could not sync desk resources: %s", err)
+		c.logger.Info("could not delete stale desk resources: %s", err)
 	}
-	c.logger.Info("synchronized desk resources")
 	return nil
 }
 
@@ -117,4 +128,40 @@ func (c *Controller) deleteStaleResources() error {
 		}
 	}
 	return nil
+}
+
+func (c *Controller) onAdd(obj interface{}) {
+	c.logger.Info("desk.Controller::onAdd()")
+	if d, ok := obj.(*workshopv1.Desk); ok {
+		desk := d.DeepCopyObject().(*workshopv1.Desk)
+		deskManager := NewManager(c.kubeClient, c.domain, c.logger, desk)
+		deskManager.Start()
+		c.desks[desk.Name] = *deskManager
+	}
+}
+
+func (c *Controller) onUpdate(oldObj, newObj interface{}) {
+	c.logger.Info("desk.Controller::onUpdate()")
+	if d, ok := newObj.(*workshopv1.Desk); ok {
+		desk := d.DeepCopyObject().(*workshopv1.Desk)
+		deskManager, ok := c.desks[desk.Name]
+		if !ok {
+			c.logger.Errorf("could not update desk resources for desk \"%s\": no controller found", d.Name)
+			return
+		}
+		deskManager.Update(desk)
+	}
+}
+
+func (c *Controller) onDelete(obj interface{}) {
+	c.logger.Info("desk.Controller::onDelete()")
+	if d, ok := obj.(*workshopv1.Desk); ok {
+		deskManager, ok := c.desks[d.Name]
+		if !ok {
+			c.logger.Errorf("could not delete desk resources for desk \"%s\": no controller found", d.Name)
+			return
+		}
+		deskManager.Stop()
+		delete(c.desks, d.Name)
+	}
 }

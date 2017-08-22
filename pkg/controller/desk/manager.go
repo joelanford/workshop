@@ -15,34 +15,36 @@ type Manager struct {
 
 	desk *apiv1.Desk
 
-	trustedNsController   namespace.TrustedController
-	untrustedNsController namespace.UntrustedController
+	trustedNsController *namespace.TrustedController
+	defaultNsController *namespace.DefaultController
 }
 
 func NewManager(kubeClient kubernetes.Interface, domain string, logger *logrus.Logger, desk *apiv1.Desk) *Manager {
 	return &Manager{
-		kubeClient: kubeClient,
-		domain:     domain,
-		logger:     logger,
-		desk:       desk,
+		kubeClient:          kubeClient,
+		domain:              domain,
+		logger:              logger,
+		desk:                desk,
+		trustedNsController: namespace.NewTrustedController(kubeClient, domain, logger, desk),
+		defaultNsController: namespace.NewDefaultController(kubeClient, logger, desk),
 	}
 }
 
 func (m *Manager) Start() {
-	m.logger.Debugf("starting desk manager for desk \"%s\"...", m.desk.Name)
+	m.logger.Infof("starting desk manager for desk \"%s\"...", m.desk.Name)
 	m.trustedNsController.Start()
-	m.untrustedNsController.Start()
-	m.logger.Debugf("started desk manager for desk \"%s\"", m.desk.Name)
+	m.defaultNsController.Start()
+	m.logger.Infof("started desk manager for desk \"%s\"", m.desk.Name)
 }
 
 func (m *Manager) Update(d *apiv1.Desk) {
-	m.logger.Debugf("updating desk \"%s\"...", m.desk.Name)
-	m.logger.Debugf("updated desk \"%s\"", m.desk.Name)
+	m.logger.Infof("updating desk \"%s\"...", m.desk.Name)
+	m.logger.Infof("updated desk \"%s\"", m.desk.Name)
 }
 
 func (m *Manager) Stop() {
-	m.logger.Debugf("stopping desk manager for desk \"%s\"...", m.desk.Name)
+	m.logger.Infof("stopping desk manager for desk \"%s\"...", m.desk.Name)
 	m.trustedNsController.Stop()
-	m.untrustedNsController.Stop()
-	m.logger.Debugf("stopped desk manager for desk \"%s\"", m.desk.Name)
+	m.defaultNsController.Stop()
+	m.logger.Infof("stopped desk manager for desk \"%s\"", m.desk.Name)
 }

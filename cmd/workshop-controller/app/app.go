@@ -17,11 +17,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
-	"github.com/joelanford/workshop/cmd/workshop-controller/app/glogshim"
 	"github.com/joelanford/workshop/pkg/controller/workshop"
 )
 
@@ -32,7 +30,7 @@ var (
 	gitHash   string
 )
 
-func Run() error {
+func Run(logger *logrus.Logger) error {
 	cli.VersionPrinter = printVersion
 	cli.VersionFlag = cli.BoolFlag{
 		Name:  "version",
@@ -69,11 +67,8 @@ func Run() error {
 			Usage: "if set, will use as domain suffix for workshop services.",
 		},
 	}
-	app.Flags = append(app.Flags, glogshim.Flags...)
 
 	app.Action = func(c *cli.Context) error {
-		glogshim.ShimCLI(c)
-
 		domain := c.String("domain")
 		kubeconfig := c.String("kubeconfig")
 		healthzPort := c.Int("healthz-port")
@@ -94,18 +89,18 @@ func Run() error {
 			}
 		}
 
-		wc, err := workshop.NewController(config, domain, logrus.New())
+		wc, err := workshop.NewController(config, domain, logger)
 		if err != nil {
 			return err
 		}
 
 		if clean {
-			glog.V(0).Infof("Cleaning workshop resources and exiting.")
+			logger.Infof("Cleaning workshop resources and exiting.")
 			return wc.Clean()
 		}
 
 		for _, flagName := range c.GlobalFlagNames() {
-			glog.V(0).Infof("FLAG --%s=%q", flagName, c.Generic(flagName))
+			logger.Infof("FLAG --%s=%q", flagName, c.Generic(flagName))
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -125,7 +120,7 @@ func Run() error {
 			if err := wc.Start(ctx); err != nil {
 				return err
 			}
-			glog.V(0).Infof("Starting healthz server at %v with readiness handler at \"/readiness\"", healthzPort)
+			logger.Infof("starting healthz server at %v with readiness handler at \"/readiness\"", healthzPort)
 			return healthzServer.ListenAndServe()
 		})
 
@@ -134,7 +129,7 @@ func Run() error {
 
 		select {
 		case sig := <-sigChan:
-			glog.V(0).Infof("Received signal %s, exiting gracefully", sig)
+			logger.Infof("received signal %s, exiting gracefully", sig)
 		case <-ctx.Done():
 		}
 
@@ -143,13 +138,13 @@ func Run() error {
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), time.Second*5)
 		if err := healthzServer.Shutdown(shutdownCtx); err != nil {
-			glog.V(0).Infof("Could not shutdown healthz server gracefully: %s. Forcing shutdown", err)
+			logger.Infof("could not shutdown healthz server gracefully: %s, forcing shutdown", err)
 			healthzServer.Close()
 		}
 		shutdownCancel()
 
 		if err := wg.Wait(); err != nil && err != context.Canceled && err != http.ErrServerClosed {
-			return errors.Wrap(err, "Unhandled error received")
+			return errors.Wrap(err, "unhandled error received")
 		}
 		return nil
 	}

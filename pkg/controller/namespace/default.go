@@ -13,9 +13,8 @@ import (
 	apiv1 "github.com/joelanford/workshop/pkg/apis/workshop/v1"
 )
 
-type TrustedController struct {
+type DefaultController struct {
 	kubeClient kubernetes.Interface
-	domain     string
 	logger     *logrus.Logger
 
 	desk *apiv1.Desk
@@ -28,26 +27,25 @@ type TrustedController struct {
 	namespaceName string
 }
 
-func NewTrustedController(kubeClient kubernetes.Interface, domain string, logger *logrus.Logger, desk *apiv1.Desk) *TrustedController {
-	return &TrustedController{
+func NewDefaultController(kubeClient kubernetes.Interface, logger *logrus.Logger, desk *apiv1.Desk) *DefaultController {
+	return &DefaultController{
 		kubeClient:    kubeClient,
-		domain:        domain,
 		logger:        logger,
 		desk:          desk,
-		namespaceName: fmt.Sprintf("desk-%s-trusted", desk.Name),
+		namespaceName: fmt.Sprintf("desk-%s-default", desk.Name),
 	}
 }
 
-func (c *TrustedController) Start() error {
+func (c *DefaultController) Start() error {
 	_, err := c.create()
 	return err
 }
 
-func (c *TrustedController) Stop() error {
+func (c *DefaultController) Stop() error {
 	return c.delete()
 }
 
-func (c *TrustedController) create() (*v1.Namespace, error) {
+func (c *DefaultController) create() (*v1.Namespace, error) {
 	namespace, err := c.kubeClient.CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.namespaceName,
@@ -68,7 +66,7 @@ func (c *TrustedController) create() (*v1.Namespace, error) {
 	return namespace, nil
 }
 
-func (c *TrustedController) delete() error {
+func (c *DefaultController) delete() error {
 	err := c.kubeClient.CoreV1().Namespaces().Delete(c.namespaceName, nil)
 	if err != nil {
 		return err
